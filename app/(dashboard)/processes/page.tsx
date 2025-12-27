@@ -2,40 +2,173 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { processService, type Process } from "@/lib/services"
-import { Search } from "lucide-react"
+import { processService, eprocService, esajService, type Process, type BatchWithStatusDTO } from "@/lib/services"
 import { useToast } from "@/hooks/use-toast"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { DataGrid } from "@/components/data-grid/data-grid"
+import type { ColumnConfig, DataGridQuery } from "@/lib/types/data-grid.types"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 
 export default function ProcessesPage() {
   const [processes, setProcesses] = useState<Process[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
-  const [filterProcessed, setFilterProcessed] = useState<boolean | undefined>(true)
-  const [filterContacted, setFilterContacted] = useState<boolean | undefined>()
-  const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [editingCell, setEditingCell] = useState<{ id: number; field: string } | null>(null)
+  const [currentQuery, setCurrentQuery] = useState<DataGridQuery>({
+    filters: [],
+    page: 1,
+    pageSize: 50,
+  })
+  
+  // Filtros globais
+  const [filterProcessed, setFilterProcessed] = useState<boolean | undefined>(undefined)
+  const [filterSystem, setFilterSystem] = useState<string>("")
+  const [filterBatchId, setFilterBatchId] = useState<number | undefined>(undefined)
+  const [batchOptions, setBatchOptions] = useState<{ id: number; description: string }[]>([])
+  const [loadingBatches, setLoadingBatches] = useState(false)
+  
   const { toast } = useToast()
+
+  const columns: ColumnConfig<Process>[] = [
+    {
+      field: "processo",
+      header: "Processo",
+      type: "string",
+      width: "240px",
+      editable: false,
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    {
+      field: "requerido",
+      header: "Requerido",
+      type: "string",
+      width: "240px",
+      editable: true,
+    },
+    {
+      field: "valor",
+      header: "Valor",
+      type: "currency",
+      width: "140px",
+      editable: false,
+    },
+    {
+      field: "comarca",
+      header: "Comarca",
+      type: "string",
+      width: "150px",
+      editable: false,
+    },
+    {
+      field: "contato",
+      header: "Contato",
+      type: "string",
+      width: "150px",
+      editable: true,
+    },
+    {
+      field: "contatoRealizado",
+      header: "Contatado",
+      type: "boolean",
+      width: "120px",
+      editable: true,
+    },
+    {
+      field: "observacoes",
+      header: "Observações",
+      type: "string",
+      editable: true,
+    },
+  ]
 
   useEffect(() => {
     loadProcesses()
-  }, [page, search, filterProcessed, filterContacted])
+  }, [currentQuery])
+
+  // Carrega batches quando o sistema é selecionado
+  useEffect(() => {
+    if (filterSystem) {
+      loadBatches()
+    } else {
+      setBatchOptions([])
+      setFilterBatchId(undefined)
+    }
+  }, [filterSystem])
+
+  async function loadBatches() {
+    try {
+      setLoadingBatches(true)
+      let batches: BatchWithStatusDTO[] = []
+
+      if (filterSystem === "EPROC") {
+        batches = await eprocService.listAllBatches()
+      } else if (filterSystem === "ESAJ") {
+        batches = await esajService.listAllBatches()
+      }
+
+      const options = batches.map((batch) => ({
+        id: batch.id,
+        description: batch.description,
+      }))
+
+      
+      setBatchOptions(options)
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar lotes",
+        variant: "destructive",
+      })
+      setBatchOptions([])
+    } finally {
+      setLoadingBatches(false)
+    }
+  }
 
   async function loadProcesses() {
     try {
       setLoading(true)
-      const response = await processService.listProcesses({
-        page,
-        limit: 50,
-        search: search || undefined,
-        processed: filterProcessed,
-        contatoRealizado: filterContacted,
-      })
+
+      const params: any = {
+        page: currentQuery.page,
+        limit: currentQuery.pageSize,
+      }
+
+      // Apply global filters
+      if (filterProcessed !== undefined) {
+        params.processed = filterProcessed
+      }
+      if (filterBatchId !== undefined) {
+        params.batchId = filterBatchId
+      }
+
+      // Encode advanced filters as JSON string for GET
+      if (currentQuery.filters && currentQuery.filters.length > 0) {
+        try {
+          params.filters = encodeURIComponent(JSON.stringify(currentQuery.filters))
+        } catch (e) {
+          // fallback: ignore encoding errors
+        }
+        // Optional: keep compatibility with existing 'search' param when filtering by processo
+        const searchFilter = currentQuery.filters.find((f) => f.field === "processo")
+        if (searchFilter) {
+          params.search = searchFilter.value
+        }
+      }
+
+      // Apply sort
+      if (currentQuery.sort) {
+        params.sortBy = currentQuery.sort.field
+        params.sortOrder = currentQuery.sort.direction
+      }
+
+      const response = await processService.listProcesses(params)
       setProcesses(response.items)
       setTotal(response.total)
     } catch (error) {
@@ -49,16 +182,16 @@ export default function ProcessesPage() {
     }
   }
 
-  async function handleCellUpdate(id: number, field: keyof Process, value: any) {
+  async function handleCellEdit(row: Process, field: keyof Process, value: any) {
     try {
       if (field === "contato" || field === "contatoRealizado" || field === "observacoes") {
-        const updated = await processService.updateProcessContact(id, { [field]: value })
-        setProcesses(processes.map((p) => (p.id === id ? updated : p)))
+        const updated = await processService.updateProcessContact(row.id, { [field]: value })
+        setProcesses(processes.map((p) => (p.id === row.id ? updated : p)))
+        toast({
+          title: "Sucesso",
+          description: "Processo atualizado com sucesso",
+        })
       }
-      toast({
-        title: "Sucesso",
-        description: "Processo atualizado",
-      })
     } catch (error) {
       toast({
         title: "Erro",
@@ -68,192 +201,136 @@ export default function ProcessesPage() {
     }
   }
 
-  function EditableCell({
-    process,
-    field,
-    type = "text",
-  }: {
-    process: Process
-    field: keyof Process
-    type?: "text" | "checkbox"
-  }) {
-    const [value, setValue] = useState(process[field])
-    const isEditing = editingCell?.id === process.id && editingCell?.field === field
-
-    if (type === "checkbox") {
-      return (
-        <Checkbox
-          checked={Boolean(value)}
-          onCheckedChange={(checked) => {
-            setValue(checked)
-            handleCellUpdate(process.id, field, checked)
-          }}
-        />
-      )
-    }
-
-    if (isEditing) {
-      return (
-        <Input
-          autoFocus
-          value={String(value || "")}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={() => {
-            setEditingCell(null)
-            if (value !== process[field]) {
-              handleCellUpdate(process.id, field, value)
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              setEditingCell(null)
-              if (value !== process[field]) {
-                handleCellUpdate(process.id, field, value)
-              }
-            }
-            if (e.key === "Escape") {
-              setValue(process[field])
-              setEditingCell(null)
-            }
-          }}
-          className="h-8"
-        />
-      )
-    }
-
-    return (
-      <div
-        onClick={() => setEditingCell({ id: process.id, field })}
-        className="cursor-pointer rounded px-2 py-1 hover:bg-muted"
-      >
-        {String(value || "-")}
-      </div>
-    )
+  function handleQueryChange(query: DataGridQuery) {
+    setCurrentQuery(query)
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Processos</h1>
-        <p className="text-muted-foreground">Lista completa de processos com edição inline</p>
+        <p className="text-muted-foreground">Gerenciamento completo com filtros e ordenação por coluna</p>
       </div>
+
+      {/* Filtros Globais */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros Globais</CardTitle>
+          <CardDescription>Filtre por status de processamento, sistema e lote</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
+            <div className="md:col-span-1">
+              <Label htmlFor="filter-processed">Processado</Label>
+              <Select
+                value={filterProcessed === undefined ? "all" : String(filterProcessed)}
+                onValueChange={(v) => {
+                  setFilterProcessed(v === "all" ? undefined : v === "true")
+                  setCurrentQuery({ ...currentQuery, page: 1 })
+                }}
+              >
+                <SelectTrigger id="filter-processed">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-1">
+              <Label htmlFor="filter-system">Sistema</Label>
+              <Select value={filterSystem || "all"} onValueChange={(v) => setFilterSystem(v === "all" ? "" : v)}>
+                <SelectTrigger id="filter-system">
+                  <SelectValue placeholder="Selecione um sistema" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="EPROC">EPROC</SelectItem>
+                  <SelectItem value="ESAJ">ESAJ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-4 overflow-hidden">
+              <Label htmlFor="filter-batch">Lote (Batch)</Label>
+              <Select
+                value={filterBatchId?.toString() || "all"}
+                onValueChange={(v) => {
+                  setFilterBatchId(v === "all" ? undefined : Number(v))
+                  setCurrentQuery({ ...currentQuery, page: 1 })
+                }}
+                disabled={!filterSystem || loadingBatches}
+              >
+                <SelectTrigger id="filter-batch" className="truncate max-w-full w-full">
+                  <SelectValue placeholder={!filterSystem ? "Selecione um sistema primeiro" : "Selecione um lote"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {batchOptions.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id.toString()}>
+                      {batch.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end md:col-span-2">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setFilterProcessed(undefined)
+                  setFilterSystem("")
+                  setFilterBatchId(undefined)
+                  setBatchOptions([])
+                  setCurrentQuery({ ...currentQuery, page: 1 })
+                }}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Lista de Processos</CardTitle>
-              <CardDescription>Total: {total} processos • Clique para editar</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar processo..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4 pt-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="filter-processed">Processado:</Label>
-              <Select
-                value={filterProcessed === undefined ? "all" : String(filterProcessed)}
-                onValueChange={(v) => setFilterProcessed(v === "all" ? undefined : v === "true")}
-              >
-                <SelectTrigger id="filter-processed" className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="true">Sim</SelectItem>
-                  <SelectItem value="false">Não</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label htmlFor="filter-contacted">Contatado:</Label>
-              <Select
-                value={filterContacted === undefined ? "all" : String(filterContacted)}
-                onValueChange={(v) => setFilterContacted(v === "all" ? undefined : v === "true")}
-              >
-                <SelectTrigger id="filter-contacted" className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="true">Sim</SelectItem>
-                  <SelectItem value="false">Não</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle>Lista de Processos</CardTitle>
+          <CardDescription>
+            Total: {total} processos • Clique nos ícones de filtro para configurar • Clique nas células para editar
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <p className="text-center text-muted-foreground">Carregando...</p>
-          ) : processes?.length === 0 ? (
-            <p className="text-center text-muted-foreground">Nenhum processo encontrado</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="p-2 text-left text-sm font-medium">Processo</th>
-                    <th className="p-2 text-left text-sm font-medium">Requerido</th>
-                    <th className="p-2 text-left text-sm font-medium">Valor</th>
-                    <th className="p-2 text-left text-sm font-medium">Comarca</th>
-                    <th className="p-2 text-left text-sm font-medium">Contato</th>
-                    <th className="p-2 text-center text-sm font-medium">Contatado</th>
-                    <th className="p-2 text-left text-sm font-medium">Observações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processes?.map((process) => (
-                    <tr key={process.id} className="border-b hover:bg-muted/30">
-                      <td className="p-2 text-sm font-mono">{process.processo}</td>
-                      <td className="p-2 text-sm">
-                        <EditableCell process={process} field="requerido" />
-                      </td>
-                      <td className="p-2 text-sm">
-                        {process.valor
-                          ? new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(process.valor)
-                          : "-"}
-                      </td>
-                      <td className="p-2 text-sm">{process.comarca}</td>
-                      <td className="p-2 text-sm">
-                        <EditableCell process={process} field="contato" />
-                      </td>
-                      <td className="p-2 text-center">
-                        <EditableCell process={process} field="contatoRealizado" type="checkbox" />
-                      </td>
-                      <td className="p-2 text-sm">
-                        <EditableCell process={process} field="observacoes" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataGrid
+            columns={columns}
+            data={processes}
+            loading={loading}
+            editable={true}
+            onCellEdit={handleCellEdit}
+            onQueryChange={handleQueryChange}
+          />
 
-          {total > 50 && (
+          {total > currentQuery.pageSize && (
             <div className="mt-4 flex items-center justify-between">
-              <Button variant="outline" disabled={page === 1} onClick={() => setPage(page - 1)}>
+              <Button
+                variant="outline"
+                disabled={currentQuery.page === 1}
+                onClick={() => setCurrentQuery({ ...currentQuery, page: currentQuery.page - 1 })}
+              >
                 Anterior
               </Button>
               <span className="text-sm text-muted-foreground">
-                Página {page} de {Math.ceil(total / 50)}
+                Página {currentQuery.page} de {Math.ceil(total / currentQuery.pageSize)}
               </span>
-              <Button variant="outline" disabled={page >= Math.ceil(total / 50)} onClick={() => setPage(page + 1)}>
+              <Button
+                variant="outline"
+                disabled={currentQuery.page >= Math.ceil(total / currentQuery.pageSize)}
+                onClick={() => setCurrentQuery({ ...currentQuery, page: currentQuery.page + 1 })}
+              >
                 Próxima
               </Button>
             </div>

@@ -61,6 +61,14 @@ export class EsajService extends BaseService {
    * GET /esaj/batch
    */
   async listProcessingBatches(): Promise<BatchWithStatusDTO[]> {
+    return this.get<BatchWithStatusDTO[]>("/batch/processing");
+  }
+
+  /**
+   * Lista todos os lotes de processos
+   * GET /eproc/batch
+   */
+  async listAllBatches(): Promise<BatchWithStatusDTO[]> {
     return this.get<BatchWithStatusDTO[]>("/batch");
   }
 

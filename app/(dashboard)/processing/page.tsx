@@ -32,8 +32,6 @@ export default function ProcessingPage() {
     return () => clearInterval(interval)
   }, [])
 
-  console.log(batches)
-
   async function loadBatches() {
     try {
       const batchesData = await processService.listProcessingBatches()

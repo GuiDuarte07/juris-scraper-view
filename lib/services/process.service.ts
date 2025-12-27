@@ -30,14 +30,13 @@ export interface ProcessListResponse {
 }
 
 export interface ProcessListParams {
-  order?: "asc" | "desc";
-  contatoFilled?: boolean;
-  contatoRealizado?: boolean;
   processed?: boolean;
   batchId?: number;
-  search?: string;
   page?: number;
   limit?: number;
+  // Explicit sort fields to align with grid
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 export interface UpdateContactData {
@@ -58,6 +57,7 @@ export class ProcessService extends BaseService {
   async listProcesses(
     params?: ProcessListParams
   ): Promise<ProcessListResponse> {
+    console.log(params);
     return this.get<ProcessListResponse>("", params);
   }
 

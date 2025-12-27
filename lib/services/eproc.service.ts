@@ -100,9 +100,17 @@ export class EprocService extends BaseService {
 
   /**
    * Lista todos os lotes de processos em processamento
-   * GET /eproc/batch
+   * GET /eproc/batch/processing
    */
   async listProcessingBatches(): Promise<BatchWithStatusDTO[]> {
+    return this.get<BatchWithStatusDTO[]>("/batch/processing");
+  }
+
+  /**
+   * Lista todos os lotes de processos
+   * GET /eproc/batch
+   */
+  async listAllBatches(): Promise<BatchWithStatusDTO[]> {
     return this.get<BatchWithStatusDTO[]>("/batch");
   }
 
