@@ -34,6 +34,7 @@ export function DataGrid<T extends { id: number | string }>({
   const [filters, setFilters] = useState<DataGridFilters>({})
   const [sort, setSort] = useState<DataGridSort | null>(null)
   const [editingCell, setEditingCell] = useState<{ id: number | string; field: keyof T } | null>(null)
+  const [editValue, setEditValue] = useState<string>("")
 
   function handleFilterChange(field: string, filter: ColumnFilter | undefined) {
     const newFilters = { ...filters }
@@ -84,8 +85,10 @@ export function DataGrid<T extends { id: number | string }>({
         <div className="flex justify-center">
           <Checkbox
             checked={Boolean(value)}
-            onCheckedChange={(checked) => {
-              onCellEdit?.(row, field, checked)
+            onCheckedChange={async (checked) => {
+              if (onCellEdit) {
+                await onCellEdit(row, field, checked)
+              }
             }}
           />
         </div>
@@ -97,18 +100,20 @@ export function DataGrid<T extends { id: number | string }>({
         <Input
           autoFocus
           type={column.type === "number" || column.type === "currency" ? "number" : "text"}
-          value={String(value || "")}
+          value={editValue}
           onChange={(e) => {
-            // Update local state if needed
+            setEditValue(e.target.value)
           }}
-          onBlur={(e) => {
+          onBlur={async (e) => {
             setEditingCell(null)
             const newValue =
               column.type === "number" || column.type === "currency"
-                ? Number.parseFloat(e.target.value)
-                : e.target.value
-            if (newValue !== value) {
-              onCellEdit?.(row, field, newValue)
+                ? Number.parseFloat(editValue)
+                : editValue
+            if (newValue !== value && editValue !== String(value || "")) {
+              if (onCellEdit) {
+                await onCellEdit(row, field, newValue)
+              }
             }
           }}
           onKeyDown={(e) => {
@@ -126,7 +131,10 @@ export function DataGrid<T extends { id: number | string }>({
 
     return (
       <div
-        onClick={() => setEditingCell({ id: row.id, field })}
+        onClick={() => {
+          setEditingCell({ id: row.id, field })
+          setEditValue(String(value || ""))
+        }}
         className="cursor-pointer rounded px-2 py-1 hover:bg-muted/50 transition-colors"
       >
         {renderCellValue(column, value, row)}

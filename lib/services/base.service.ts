@@ -1,43 +1,55 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export class BaseService {
-  protected baseUrl: string
+  protected baseUrl: string;
 
   constructor(path: string) {
-    this.baseUrl = `${API_BASE_URL}${path}`
+    this.baseUrl = `${API_BASE_URL}${path}`;
   }
 
-  protected async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${endpoint}`)
+  protected async get<T>(
+    endpoint: string,
+    params?: Record<string, any>
+  ): Promise<T> {
+    const url = new URL(`${this.baseUrl}${endpoint}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value))
+          url.searchParams.append(key, String(value));
         }
-      })
+      });
     }
 
-    const response = await fetch(url.toString())
+    const response = await fetch(url.toString(), {
+      credentials: "include", // Envia cookies automaticamente
+    });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    return response.json()
+    return response.json();
   }
 
-  protected async post<T>(endpoint: string, body?: any, isFormData = false): Promise<T> {
-    const headers: HeadersInit = isFormData ? {} : { "Content-Type": "application/json" }
+  protected async post<T>(
+    endpoint: string,
+    body?: any,
+    isFormData = false
+  ): Promise<T> {
+    const headers: HeadersInit = isFormData
+      ? {}
+      : { "Content-Type": "application/json" };
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: "POST",
       headers,
       body: isFormData ? body : JSON.stringify(body),
-    })
+      credentials: "include", // Envia cookies automaticamente
+    });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    return response.json()
+    return response.json();
   }
 
   protected async patch<T>(endpoint: string, body: any): Promise<T> {
@@ -45,37 +57,41 @@ export class BaseService {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    })
+      credentials: "include", // Envia cookies automaticamente
+    });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    return response.json()
+    return response.json();
   }
 
   protected async delete<T = void>(endpoint: string): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: "DELETE",
-    })
+      credentials: "include", // Envia cookies automaticamente
+    });
 
     if (!response.ok && response.status !== 204) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     if (response.status === 204) {
-      return undefined as T
+      return undefined as T;
     }
 
-    return response.json()
+    return response.json();
   }
 
   protected async downloadFile(endpoint: string): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`)
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      credentials: "include", // Envia cookies automaticamente
+    });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return response.blob()
+    return response.blob();
   }
 }

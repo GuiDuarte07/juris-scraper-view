@@ -128,10 +128,10 @@ export default function ImportPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="SP">São Paulo (SP)</SelectItem>
-                      <SelectItem value="RJ">Rio de Janeiro (RJ)</SelectItem>
+                      {/* <SelectItem value="RJ">Rio de Janeiro (RJ)</SelectItem>
                       <SelectItem value="MG">Minas Gerais (MG)</SelectItem>
                       <SelectItem value="RS">Rio Grande do Sul (RS)</SelectItem>
-                      <SelectItem value="PR">Paraná (PR)</SelectItem>
+                      <SelectItem value="PR">Paraná (PR)</SelectItem> */}
                     </SelectContent>
                   </Select>
                 </div>

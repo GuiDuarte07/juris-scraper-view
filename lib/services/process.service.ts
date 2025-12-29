@@ -73,6 +73,14 @@ export class ProcessService extends BaseService {
   }
 
   /**
+   * Deletar um processo por ID
+   * DELETE /process/{processId}
+   */
+  async deleteProcess(processId: number): Promise<void> {
+    return this.delete<void>(`/${processId}`);
+  }
+
+  /**
    * Retorna status do lote por ID
    * GET /process/batch/{batchId}
    */
