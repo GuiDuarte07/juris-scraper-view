@@ -5,6 +5,7 @@ import type {
   ImportPdfResponse,
   BatchStatusDTO,
   BatchWithStatusDTO,
+  SessionInfo,
 } from "./eproc.service";
 
 export class EsajService extends BaseService {
@@ -78,6 +79,14 @@ export class EsajService extends BaseService {
    */
   async exportBatchToExcel(batchId: number): Promise<Blob> {
     return this.downloadFile(`/export/batch/${batchId}`);
+  }
+
+  /**
+   * Recuperar PHPSESSID e informações de sessão do ESAJ
+   * GET /esaj/get-session
+   */
+  async getSession(): Promise<SessionInfo> {
+    return this.get<SessionInfo>("/get-session");
   }
 }
 

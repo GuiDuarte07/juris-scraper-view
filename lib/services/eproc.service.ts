@@ -38,6 +38,14 @@ export interface BatchWithStatusDTO {
   status?: BatchStatusDTO;
 }
 
+export interface SessionInfo {
+  sessionId: string;
+  expiresAt: string;
+  isValid: boolean;
+  isExpired: boolean;
+  createdAt: string;
+}
+
 export class EprocService extends BaseService {
   constructor() {
     super("/eproc");
@@ -68,6 +76,14 @@ export class EprocService extends BaseService {
       service_name: serviceName,
       session_id: sessionId,
     });
+  }
+
+  /**
+   * Recuperar PHPSESSID e informações de sessão do EPROC
+   * GET /eproc/get-session
+   */
+  async getSession(): Promise<SessionInfo> {
+    return this.get<SessionInfo>("/get-session");
   }
 
   /**

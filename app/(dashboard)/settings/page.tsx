@@ -1,20 +1,51 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { eprocService } from "@/lib/services"
-import { Settings, Key, CheckCircle } from "lucide-react"
+import { Settings, Key, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { SessionInfo } from "@/lib/services/eproc.service"
 
 export default function SettingsPage() {
   const [serviceName, setServiceName] = useState("EPROC")
   const [sessionId, setSessionId] = useState("")
   const [updating, setUpdating] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null)
+  const [loadingSession, setLoadingSession] = useState(false)
   const { toast } = useToast()
+
+  // Carregar informações de sessão ao montar
+  useEffect(() => {
+    // Garante que sessionId começa vazio e limpa qualquer cache
+    setSessionId("")
+    if (typeof window !== "undefined") {
+      // Remove valores salvos em localStorage que possam interferir
+      try {
+        localStorage.removeItem("sessionId")
+        localStorage.removeItem("PHPSESSID")
+      } catch {}
+    }
+    loadSessionInfo()
+  }, [])
+
+  async function loadSessionInfo() {
+    try {
+      setLoadingSession(true)
+      const info = await eprocService.getSession()
+      setSessionInfo(info)
+    } catch (error) {
+      console.log("Nenhuma sessão ativa no momento")
+      setSessionInfo(null)
+    } finally {
+      setLoadingSession(false)
+    }
+  }
 
   async function handleUpdateSession() {
     if (!sessionId) {
@@ -30,6 +61,10 @@ export default function SettingsPage() {
       setUpdating(true)
       await eprocService.setSession(serviceName, sessionId)
       setSuccess(true)
+      
+      // Carrega as informações atualizadas da sessão imediatamente
+      await loadSessionInfo()
+      
       toast({
         title: "Sucesso",
         description: "Sessão atualizada com sucesso",
@@ -93,6 +128,8 @@ export default function SettingsPage() {
                     value={sessionId}
                     onChange={(e) => setSessionId(e.target.value)}
                     disabled={updating}
+                    autoComplete="new-password"
+                    spellCheck="false"
                   />
                 </div>
 
@@ -121,6 +158,73 @@ export default function SettingsPage() {
                   </ol>
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Sessão Atual
+            </CardTitle>
+            <CardDescription>Estado atual da sessão PHPSESSID</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingSession ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Carregando informações...</span>
+              </div>
+            ) : sessionInfo ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Status</span>
+                    <Badge variant={sessionInfo.isValid && !sessionInfo.isExpired ? "default" : "destructive"}>
+                      {sessionInfo.isExpired ? "Expirada" : sessionInfo.isValid ? "Válida" : "Inválida"}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg bg-muted p-4 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Session ID</span>
+                    <span className="font-mono text-xs">{sessionInfo.sessionId.substring(0, 10)}...{sessionInfo.sessionId.substring(sessionInfo.sessionId.length - 5)}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Criada em</span>
+                    <span>{new Date(sessionInfo.createdAt).toLocaleString("pt-BR")}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Expira em</span>
+                    <span className={sessionInfo.isExpired ? "text-red-600 font-medium" : ""}>
+                      {new Date(sessionInfo.expiresAt).toLocaleString("pt-BR")}
+                    </span>
+                  </div>
+
+                  {sessionInfo.isExpired && (
+                    <div className="mt-3 flex items-start gap-2 rounded-md bg-red-50 p-3 dark:bg-red-950">
+                      <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-red-800 dark:text-red-200">
+                        Sua sessão expirou. Atualize o PHPSESSID acima para continuar usando o sistema.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Button variant="outline" className="w-full" onClick={loadSessionInfo}>
+                  Atualizar Informações
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8">
+                <AlertCircle className="h-12 w-12 text-amber-600" />
+                <p className="mt-4 font-medium">Nenhuma sessão configurada</p>
+                <p className="text-sm text-muted-foreground">Configure uma sessão acima para começar</p>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -26,15 +26,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicRoute = publicRoutes.includes(pathname)
 
   useEffect(() => {
-    // Tenta recuperar o usuário do authService (cache ou localStorage)
-    const currentUser = authService.getCurrentUser()
-    if (currentUser) {
-      setUser(currentUser)
-      setHasToken(true)
-    } else {
-      setHasToken(false)
+    // Valida cookie/token no backend e hidrata o usuário se possível
+    let mounted = true
+    ;(async () => {
+      setLoading(true)
+      const { user: fetchedUser, unauthorized } = await authService.hydrateFromCookie()
+      if (!mounted) return
+
+      if (unauthorized) {
+        // Cookie inválido: limpar estado local e marcar sem token
+        setUser(null)
+        setHasToken(false)
+        setLoading(false)
+        return
+      }
+
+      if (fetchedUser) {
+        setUser(fetchedUser)
+        setHasToken(true)
+      } else {
+        // tenta recuperar do localStorage como fallback
+        const currentUser = authService.getCurrentUser()
+        if (currentUser) {
+          setUser(currentUser)
+          setHasToken(true)
+        } else {
+          setUser(null)
+          setHasToken(false)
+        }
+      }
+      setLoading(false)
+    })()
+    return () => {
+      mounted = false
     }
-    setLoading(false)
   }, [pathname])
 
   useEffect(() => {

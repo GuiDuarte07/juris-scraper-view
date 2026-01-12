@@ -60,7 +60,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
             <Shield className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Sistema EPROC</h1>
+          <h1 className="text-3xl font-bold tracking-tight">JurisTrackSP</h1>
           <p className="text-muted-foreground mt-2">Gerenciamento de Processos Jurídicos</p>
         </div>
 

@@ -9,7 +9,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Sistema EPROC - Gerenciamento de Processos",
+  title: "JurisTrackSP - Gerenciamento de Processos",
   description: "Sistema de gerenciamento e scraping de processos jurídicos",
   generator: "v0.app",
   icons: {

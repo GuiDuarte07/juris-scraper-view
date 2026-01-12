@@ -135,13 +135,13 @@ export default function ProcessesPage() {
     loadProcesses()
   }, [currentQuery])
 
-  // Carrega batches quando o sistema é selecionado
+  // Carrega batches quando o sistema é selecionado e reseta o filtro de batch
   useEffect(() => {
+    setFilterBatchId(undefined) // Reseta o batch selecionado ao mudar de sistema
     if (filterSystem) {
       loadBatches()
     } else {
       setBatchOptions([])
-      setFilterBatchId(undefined)
     }
   }, [filterSystem])
 
@@ -150,20 +150,26 @@ export default function ProcessesPage() {
       setLoadingBatches(true)
       let batches: BatchWithStatusDTO[] = []
 
+      // Carrega batches apenas do sistema selecionado
       if (filterSystem === "EPROC") {
         batches = await eprocService.listAllBatches()
       } else if (filterSystem === "ESAJ") {
         batches = await esajService.listAllBatches()
+      } else {
+        // Se nenhum sistema foi selecionado, limpa as opções
+        setBatchOptions([])
+        return
       }
 
+      // Mapeia os batches para as opções do select
       const options = batches.map((batch) => ({
         id: batch.id,
         description: batch.description,
       }))
 
-      
       setBatchOptions(options)
     } catch (error) {
+      console.error("Erro ao carregar batches:", error)
       toast({
         title: "Erro",
         description: "Falha ao carregar lotes",
@@ -187,6 +193,9 @@ export default function ProcessesPage() {
       // Apply global filters
       if (filterProcessed !== undefined) {
         params.processed = filterProcessed
+      }
+      if (filterSystem) {
+        params.system = filterSystem
       }
       if (filterBatchId !== undefined) {
         params.batchId = filterBatchId

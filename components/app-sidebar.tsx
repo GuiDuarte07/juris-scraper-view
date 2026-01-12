@@ -69,7 +69,7 @@ export function AppSidebar() {
             <FileText className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-sm font-semibold">Sistema EPROC</p>
+            <p className="text-sm font-semibold">JurisTrackSP</p>
             <p className="text-xs text-muted-foreground">Gerenciamento de Processos</p>
           </div>
         </div>

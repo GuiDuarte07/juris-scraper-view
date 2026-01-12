@@ -1,5 +1,26 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+function handleUnauthorizedResponse(): void {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem("user");
+    } catch {}
+
+    // Tenta limpar cookie no backend (não obrigatório) e ignora falhas
+    try {
+      fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+    } catch {}
+
+    // Força redirecionamento para login
+    try {
+      window.location.href = "/login";
+    } catch {}
+  }
+}
+
 export class BaseService {
   protected baseUrl: string;
 
@@ -24,6 +45,10 @@ export class BaseService {
     const response = await fetch(url.toString(), {
       credentials: "include", // Envia cookies automaticamente
     });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorizedResponse();
+      throw new Error(`HTTP ${response.status}: Unauthorized`);
+    }
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -46,6 +71,11 @@ export class BaseService {
       credentials: "include", // Envia cookies automaticamente
     });
 
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorizedResponse();
+      throw new Error(`HTTP ${response.status}: Unauthorized`);
+    }
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -60,6 +90,11 @@ export class BaseService {
       credentials: "include", // Envia cookies automaticamente
     });
 
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorizedResponse();
+      throw new Error(`HTTP ${response.status}: Unauthorized`);
+    }
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -71,6 +106,11 @@ export class BaseService {
       method: "DELETE",
       credentials: "include", // Envia cookies automaticamente
     });
+
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorizedResponse();
+      throw new Error(`HTTP ${response.status}: Unauthorized`);
+    }
 
     if (!response.ok && response.status !== 204) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -87,6 +127,11 @@ export class BaseService {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       credentials: "include", // Envia cookies automaticamente
     });
+
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorizedResponse();
+      throw new Error(`HTTP ${response.status}: Unauthorized`);
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
